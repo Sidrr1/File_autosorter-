@@ -9,13 +9,11 @@ class SortTab(QWidget):
         super().__init__()
         layout = QVBoxLayout()
 
-        # Область для Drag&Drop
         self.drop_area = QLabel("Перетащите файлы сюда")
         self.drop_area.setStyleSheet("border: 2px dashed #aaa; font-size: 16px;")
         self.drop_area.setAlignment(Qt.AlignCenter)
         self.setAcceptDrops(True) 
 
-        # Лог
         self.log = QTextEdit()
         self.log.setReadOnly(True)
         self.log.setMaximumHeight(100)   

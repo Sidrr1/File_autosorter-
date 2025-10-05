@@ -8,40 +8,56 @@ class RulesManager:
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
         if not os.path.exists(file_path):
             with open(file_path, "w", encoding="utf-8") as f:
-                json.dump({}, f, ensure_ascii=False, indent=4)
+                json.dump([], f, ensure_ascii=False, indent=4)
 
-    def load_rules(self) -> dict:
+    def load_rules(self) -> list[dict]:
         """Загрузить правила из JSON"""
         try:
             with open(self.file_path, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except json.JSONDecodeError:
-            return {}
+                rules = json.load(f)
+                if isinstance(rules, list):
+                    return rules
+                return [] 
+        except (FileNotFoundError, json.JSONDecodeError):
+            return []
 
-    def save_rules(self, rules: dict):
+    def save_rules(self, rules: list[dict]):
         """Сохранить правила в JSON"""
         with open(self.file_path, "w", encoding="utf-8") as f:
             json.dump(rules, f, ensure_ascii=False, indent=4)
 
-    def get_rules(self) -> dict:
-        """Вернуть все правила (папка -> список расширений)"""
-        return self.load_rules()
-
-    def add_rule(self, folder: str, extensions: list[str]):
-        """Добавить новое правило"""
+    def add_rule(self, folder: str, rule_type: str, patterns: list[str]):
+        """Добавляем новое правило или расширяем существующее"""
         rules = self.load_rules()
-        rules[folder] = extensions
+
+        for r in rules:
+            if r["type"] == rule_type and r["folder"] == folder:
+                existing = set(r["patterns"])
+                r["patterns"] = list(existing.union(patterns))
+                self.save_rules(rules)
+                return
+
+        rules.append({
+            "type": rule_type,
+            "patterns": patterns,
+            "folder": folder
+        })
         self.save_rules(rules)
 
-    def update_rule(self, folder: str, extensions: list[str]):
-        """Обновить правило (перезаписать список расширений)"""
+    def update_rule(self, index: int, folder: str, rule_type: str, patterns: list[str]):
+        """Обновить правило по индексу"""
         rules = self.load_rules()
-        rules[folder] = extensions
-        self.save_rules(rules)
+        if 0 <= index < len(rules):
+            rules[index] = {
+                "type": rule_type,
+                "patterns": patterns,
+                "folder": folder
+            }
+            self.save_rules(rules)
 
-    def delete_rule(self, folder: str):
-        """Удалить правило по папке"""
+    def delete_rule(self, index: int):
+        """Удалить правило по индексу"""
         rules = self.load_rules()
-        if folder in rules:
-            del rules[folder]
+        if 0 <= index < len(rules):
+            rules.pop(index)
             self.save_rules(rules)

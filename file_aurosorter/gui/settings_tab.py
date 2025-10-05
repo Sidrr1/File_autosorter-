@@ -1,9 +1,10 @@
 import os
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QTableWidget, QHBoxLayout, QPushButton,
-    QHeaderView, QFileDialog, QInputDialog, QMessageBox, QTableWidgetItem
+    QHeaderView, QMessageBox, QTableWidgetItem
 )
 from core.rules_manager import RulesManager
+from gui.add_rule_dialog import AddRuleDialog
 
 
 class SettingsTab(QWidget):
@@ -13,12 +14,13 @@ class SettingsTab(QWidget):
 
         self.rules_manager = RulesManager()
 
-        self.table = QTableWidget(0, 2)
-        self.table.setHorizontalHeaderLabels(["Расширения", "Папка назначения"])
+        self.table = QTableWidget(0, 3)
+        self.table.setHorizontalHeaderLabels(["Тип", "Шаблоны", "Папка назначения"])
 
         header = self.table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.Stretch)
+        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(1, QHeaderView.Stretch)
+        header.setSectionResizeMode(2, QHeaderView.Stretch)
 
         btn_layout = QHBoxLayout()
         btn_add = QPushButton("Добавить правило")
@@ -40,51 +42,36 @@ class SettingsTab(QWidget):
         """Обновить таблицу из RulesManager"""
         self.table.setRowCount(0)
         rules = self.rules_manager.load_rules()
-        for folder, extensions in rules.items():
-            self.add_rule_to_table(extensions, folder)
+        for rule in rules:
+            self.add_rule_to_table(rule)
 
-    def add_rule_to_table(self, extensions, folder):
+    def add_rule_to_table(self, rule: dict):
         """Добавление строки в таблицу"""
         row = self.table.rowCount()
         self.table.insertRow(row)
-        self.table.setItem(row, 0, QTableWidgetItem(", ".join(extensions)))
-        self.table.setItem(row, 1, QTableWidgetItem(folder))
+        self.table.setItem(row, 0, QTableWidgetItem(rule.get("type", "")))
+        self.table.setItem(row, 1, QTableWidgetItem(", ".join(rule.get("patterns", []))))
+        self.table.setItem(row, 2, QTableWidgetItem(rule.get("folder", "")))
 
     def add_rule(self):
-        """Добавление нового правила"""
-        exts_str, ok = QInputDialog.getText(
-            self, "Новое правило",
-            """Введите расширения (например: .txt):
-Так же можно и несколько(.txt, .docx, .jpeg)
-            """
-        )
-        if not ok or not exts_str.strip():
-            return
-
-        extensions = [("." + ext.strip().lower().lstrip(".")) for ext in exts_str.split(",") if ext.strip()]
-        if not extensions:
-            QMessageBox.warning(self, "Ошибка", "Нужно указать хотя бы одно расширение!")
-            return
-
-        folder = QFileDialog.getExistingDirectory(self, "Выберите папку назначения")
-        if not folder:
-            return
-
-        rules = self.rules_manager.load_rules()
-        rules[folder] = extensions
-        self.rules_manager.save_rules(rules)
-
-        self.refresh_table()
+        """Добавление нового правила через кастомный диалог"""
+        dialog = AddRuleDialog(self)
+        if dialog.exec_():
+            result = dialog.get_result()
+            if result:
+                self.rules_manager.add_rule(
+                    result["folder"],
+                    result["type"],
+                    result["patterns"]
+                )
+                self.refresh_table()
 
     def delete_rule(self):
         """Удаление выбранного правила"""
         row = self.table.currentRow()
         if row >= 0:
-            folder = self.table.item(row, 1).text()
-            rules = self.rules_manager.load_rules()
-            if folder in rules:
-                del rules[folder]
-                self.rules_manager.save_rules(rules)
+            # Удаляем правило по индексу
+            self.rules_manager.delete_rule(row)
             self.refresh_table()
         else:
             QMessageBox.warning(self, "Ошибка", "Выберите правило для удаления")
